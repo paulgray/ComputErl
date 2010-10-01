@@ -11,6 +11,7 @@
 
 %% API
 -export([start_link/0]).
+-export([compute/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -31,6 +32,10 @@
 %%--------------------------------------------------------------------
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+
+-spec(compute/2 :: (string(), string()) -> {ok, reference()} | {error, term()}).
+compute(JobDescPath, InputPath) ->
+    gen_server:call(?MODULE, {new_task, JobDescPath, InputPath}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -64,10 +69,19 @@ init([]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(_Request, _From, State) ->
-    Reply = ok,
-    {reply, Reply, State}.
+handle_call({new_task, JobDescPath, InputPath}, _From, State) ->
+    case (filelib:is_file(JobDescPath) andalso
+          filelib:is_file(InputPath)) of
+        true ->
+            Ref = make_ref(),
+            ce_tasks:start_task(JobDescPath, InputPath, Ref),            
 
+            {reply, {ok, Ref}, State};
+
+        false ->
+            {reply, {error, enoent}, State}
+    end.
+            
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
