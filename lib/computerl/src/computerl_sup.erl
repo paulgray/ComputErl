@@ -29,5 +29,7 @@ init([]) ->
              permanent, 2000, worker, [ce_input]},
     Scheduler = {scheduler, {ce_scheduler, start_link, []},
                  permanent, 2000, worker, [ce_scheduler]},
+    TaskSup = {task_sup, {ce_task_sup, start_link, []},
+               permanent, 2000, supervisor, [ce_task_sup]},
 
-    {ok, { {one_for_one, 3, 1000}, [Scheduler, Input]} }.
+    {ok, {{one_for_one, 3, 1000}, [TaskSup, Scheduler, Input]}}.
