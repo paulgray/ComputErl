@@ -17,12 +17,13 @@
 %% API
 -export([start_link/0]).
 -export([operational/0]).
+-export([subscribe/0, unsubscribe/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--record(state, {}).
+-record(state, {subscribers = []}).
 
 %%%===================================================================
 %%% API
@@ -43,6 +44,14 @@ start_link() ->
 -spec(operational/0 :: () -> true).
 operational() ->
     true.
+
+-spec(subscribe/0 :: () -> ok).
+subscribe() ->                          
+    gen_server:cast(?MODULE, {subscribe, self()}).
+
+-spec(unsubscribe/0 :: () -> ok).
+unsubscribe() ->
+    gen_server:cast(?MODULE, {unsubscribe, self()}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -95,8 +104,10 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast(_Msg, State) ->
-    {noreply, State}.
+handle_cast({subscribe, Pid}, #state{subscribers = Subs} = State) ->
+    {noreply, State#state{subscribers = [Pid | Subs]}};
+handle_cast({unsubscribe, Pid}, #state{subscribers = Subs} = State) ->
+    {noreply, State#state{subscribers = lists:delete(Pid, Subs)}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -108,11 +119,13 @@ handle_cast(_Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info({nodeup, Node}, State) ->
+handle_info({nodeup, Node} = Info, State) ->
     register_node(Node),
+    inform_subscribers(Info, State#state.subscribers),
     {noreply, State};
-handle_info({nodedown, Node}, State) ->
+handle_info({nodedown, Node} = Info, State) ->
     unregister_node(Node),
+    inform_subscribers(Info, State#state.subscribers),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -150,6 +163,10 @@ collect_nodes() ->
 -spec(is_node_operational/1 :: (atom()) -> boolean()).
 is_node_operational(Node) ->
     true =:= rpc:call(Node, ?MODULE, operational, []).
+
+-spec(inform_subscribers/2 :: (term(), list(pid())) -> any()).
+inform_subscribers(Info, Subscribers) ->
+    [Pid ! Info || Pid <- Subscribers].
 
 -spec(register_node/1 :: (atom()) -> (any())).
 register_node(Node) ->
