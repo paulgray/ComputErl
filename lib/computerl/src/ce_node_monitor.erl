@@ -16,7 +16,7 @@
 
 %% API
 -export([start_link/0]).
--export([operational/0]).
+-export([get_all_nodes/0, operational/0]).
 -export([subscribe/0, unsubscribe/0]).
 
 %% gen_server callbacks
@@ -44,6 +44,10 @@ start_link() ->
 -spec(operational/0 :: () -> true).
 operational() ->
     true.
+
+-spec(get_all_nodes/0 :: () -> list(atom())).
+get_all_nodes() ->
+    ets:tab2list(nodes).
 
 -spec(subscribe/0 :: () -> ok).
 subscribe() ->                          
