@@ -1,17 +1,22 @@
 %%%-------------------------------------------------------------------
 %%% @author Michal Ptaszek <michal.ptaszek@erlang-solutions.com>
 %%% @copyright (C) 2010, Erlang Solutions Ltd.
-%%% @doc Node scheduler distributing the processing requests across 
-%%%      the cluster of computing nodes.
+%%% @doc Process monitoring the current cluster state. 
+%%%      When new node joins the cluster this process will be notified
+%%%      about it and then informs everyone interested. 
+%%%      The opposite situation (node disconnect) is also handled.
 %%% @end
 %%% Created :  1 Oct 2010 by Michal Ptaszek <michal.ptaszek@erlang-solutions.com>
 %%%-------------------------------------------------------------------
--module(ce_scheduler).
+-module(ce_node_monitor).
 
 -behaviour(gen_server).
 
+-include("computerl_int.hrl").
+
 %% API
 -export([start_link/0]).
+-export([operational/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -22,8 +27,22 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Starts the server
+%%
+%% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+
+%% When new node wakes up it calls every other connected node in the cluster
+%% in order to check if the given node can handle the computations.
+-spec(operational/0 :: () -> true).
+operational() ->
+    true.
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -40,7 +59,10 @@ start_link() ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([]) ->
+init([]) -> 
+    net_kernel:monitor_nodes(true),
+    lists:foreach(fun register_node/1, collect_nodes()),
+    
     {ok, #state{}}.
 
 %%--------------------------------------------------------------------
@@ -115,3 +137,17 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+-spec(collect_nodes/0 :: () -> list(atom())).
+collect_nodes() ->
+    lists:filter(fun is_node_operational/1, [node() | nodes()]).
+
+-spec(is_node_operational/1 :: (atom()) -> boolean()).
+is_node_operational(Node) ->
+    true =:= rpc:call(Node, ?MODULE, operational, []).
+
+-spec(register_node/1 :: (atom()) -> (any())).
+register_node(Node) ->
+    F = fun() ->
+                mnesia:write(nodes, #node{name = Node})
+        end,
+    mnesia:activity(sync_dirty, F).
