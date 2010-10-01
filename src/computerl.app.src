@@ -1,0 +1,12 @@
+{application, computerl,
+ [
+  {description, "Coordination and execution framework for large scale fine-grained applications"},
+  {vsn, "2.0"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { computerl_app, []}},
+  {env, []}
+ ]}.
