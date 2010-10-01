@@ -60,6 +60,8 @@ operational() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) -> 
+    init_mnesia(),
+    
     net_kernel:monitor_nodes(true),
     lists:foreach(fun register_node/1, collect_nodes()),
     
@@ -106,7 +108,11 @@ handle_cast(_Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(_Info, State) ->
+handle_info({nodeup, Node}, State) ->
+    register_node(Node),
+    {noreply, State};
+handle_info({nodedown, Node}, State) ->
+    unregister_node(Node),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -151,3 +157,17 @@ register_node(Node) ->
                 mnesia:write(nodes, #node{name = Node})
         end,
     mnesia:activity(sync_dirty, F).
+
+-spec(unregister_node/1 :: (atom()) -> (any())).
+unregister_node(Node) ->
+    F = fun() ->
+                mnesia:delete(nodes, #node{name = Node})
+        end,
+    mnesia:activity(sync_dirty, F).
+
+-spec(init_mnesia/0 :: () -> any()).
+init_mnesia() ->
+    mnesia:create_table(nodes, 
+                        [{ram_copies, [node()]},
+                         {attributes, record_info(fields, node)}]),
+    mnesia:add_table_copy(nodes, node(), ram_copies).

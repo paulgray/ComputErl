@@ -17,7 +17,19 @@
 %% ===================================================================
 
 start(_StartType, _StartArgs) ->
+    db_init(),
     computerl_sup:start_link().
 
 stop(_State) ->
     ok.
+
+-spec(db_init/0 :: () -> any()).
+db_init() ->
+    case mnesia:system_info(extra_db_nodes) of
+        [] ->
+            application:stop(mnesia),
+            mnesia:create_schema([node()]),
+            application:start(mnesia, permanent);            
+        _ ->
+            ok
+    end.
