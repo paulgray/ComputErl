@@ -1,3 +1,10 @@
+%%%-------------------------------------------------------------------
+%%% @author Michal Ptaszek <michal.ptaszek@erlang-solutions.com>
+%%% @copyright (C) 2010, Erlang Solutions Ltd.
+%%% @doc ComputErl application callback module
+%%% @end
+%%% Created :  1 Oct 2010 by Michal Ptaszek <michal.ptaszek@erlang-solutions.com>
+%%%-------------------------------------------------------------------
 -module(computerl_app).
 
 -behaviour(application).
