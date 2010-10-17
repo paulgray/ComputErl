@@ -1,3 +1,3 @@
 #!/bin/bash
 
-erl -sname computerl -pa lib/*/ebin -eval "application:start(mnesia), application:start(sasl), application:start(computerl)."
+ERL_MAX_PORTS=50000 erl +K true -sname computerl -pa lib/*/ebin -eval "application:start(mnesia), application:start(sasl), application:start(computerl)."
