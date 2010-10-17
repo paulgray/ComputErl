@@ -1,0 +1,3 @@
+#!/bin/bash
+
+erl -sname computerl -pa lib/*/ebin -eval "application:start(mnesia), application:start(sasl), application:start(computerl)."

@@ -31,5 +31,8 @@ init([]) ->
                  permanent, 2000, worker, [ce_scheduler]},
     TaskSup = {task_sup, {ce_task_sup, start_link, []},
                permanent, 2000, supervisor, [ce_task_sup]},
+    NodeMonitor = {node_monitor, {ce_node_monitor, start_link, []},
+                   permanent, 2000, worker, [ce_node_monitor]},
 
-    {ok, {{one_for_one, 3, 1000}, [TaskSup, Scheduler, Input]}}.
+    {ok, {{one_for_one, 3, 1000}, [TaskSup, NodeMonitor, Scheduler, 
+                                   Input]}}.

@@ -47,7 +47,7 @@ operational() ->
 
 -spec(get_all_nodes/0 :: () -> list(atom())).
 get_all_nodes() ->
-    ets:tab2list(nodes).
+    ets:tab2list(ce_nodes).
 
 -spec(subscribe/0 :: () -> ok).
 subscribe() ->                          
@@ -175,20 +175,21 @@ inform_subscribers(Info, Subscribers) ->
 -spec(register_node/1 :: (atom()) -> (any())).
 register_node(Node) ->
     F = fun() ->
-                mnesia:write(nodes, #node{name = Node})
+                mnesia:write(ce_nodes, #node{name = Node}, write)
         end,
     mnesia:activity(sync_dirty, F).
 
 -spec(unregister_node/1 :: (atom()) -> (any())).
 unregister_node(Node) ->
     F = fun() ->
-                mnesia:delete(nodes, #node{name = Node})
+                mnesia:delete(ce_nodes, #node{name = Node})
         end,
     mnesia:activity(sync_dirty, F).
 
 -spec(init_mnesia/0 :: () -> any()).
 init_mnesia() ->
-    mnesia:create_table(nodes, 
+    mnesia:create_table(ce_nodes, 
                         [{ram_copies, [node()]},
+                         {record_name, node},
                          {attributes, record_info(fields, node)}]),
-    mnesia:add_table_copy(nodes, node(), ram_copies).
+    mnesia:add_table_copy(ce_nodes, node(), ram_copies).

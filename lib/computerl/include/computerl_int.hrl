@@ -1,1 +1,2 @@
--record(node, {name :: atom()}).
+-record(node, {name :: atom(), 
+               priority = 0 :: integer()}).

@@ -74,7 +74,7 @@ handle_call({new_task, JobDescPath, InputPath}, _From, State) ->
           filelib:is_file(InputPath)) of
         true ->
             Ref = make_ref(),
-            ce_tasks:start_task(JobDescPath, InputPath, Ref),            
+            ce_task:start_task(JobDescPath, InputPath, Ref),            
 
             {reply, {ok, Ref}, State};
 

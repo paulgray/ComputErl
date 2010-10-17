@@ -1,0 +1,3 @@
+#!/bin/bash
+
+erl -pa lib/*/ebin -make
