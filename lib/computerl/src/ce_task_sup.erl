@@ -33,7 +33,8 @@ start_link() ->
 -spec(start_task/3 :: (reference(), list(), string()) -> {ok, pid()} | {error, term()}).
 start_task(Ref, Config, InputPath) ->
     supervisor:start_child(?MODULE, 
-                           [{job, Ref}, {ce_task, start_link, [Ref, Config, InputPath]},
+                           [{job, Ref}, 
+                            {ce_task_type, start_link, [Ref, Config, InputPath]},
                             transient, 2000, [ce_task]]).
 
 %%%===================================================================

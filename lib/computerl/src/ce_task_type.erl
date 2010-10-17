@@ -14,15 +14,18 @@
 -export([start_task/3, start_link/3]).
 -export([init/4]).
 
--record(state, {callback_state,
-                ref,
+-record(state, {callback_state :: term(),
+                mod :: atom(), %% callback module
+                ref :: reference(), %% task reference
                 config, 
                 input_path}).
 
 -spec(behaviour_info/1 :: (atom()) -> term()).
 behaviour_info(callbacks) ->
-    [{init, 1, 
-      start_computations, 3}];
+    [{init, 1}, 
+     {start_computations, 3},
+     {incoming_data, 3},
+     {port_exit, 3}];
 behaviour_info(_) ->
     undefined.
 
@@ -43,13 +46,17 @@ init(Parent, Ref, Config, InputPath) ->
     {value, {computation_type, Type, TypeParams}} = 
         lists:keysearch(computation_type, 1, Config),
     case catch Type:init(TypeParams) of
-        {ok, CallbackState} ->
+        {ok, CallbackState0} ->
             proc_lib:init_ack(Parent, {ok, self()}),
+            CallbackState = Type:start_computations(CallbackState0),
 
             %% TODO - fault tolerance aspect - register 
             %% what is computed where
             
+            %% TODO - consider calling term_to_binary/compressed 
+            %% on 'config' to reduce a memory consumption
             loop(#state{callback_state = CallbackState,
+                        mod = Type, 
                         ref = Ref,
                         config = Config,
                         input_path = InputPath});
@@ -60,6 +67,16 @@ init(Parent, Ref, Config, InputPath) ->
 -spec(loop/1 :: (#state{}) -> no_return()).
 loop(State) ->
     receive
+        {Port, Data} when is_port(Port) ->
+            CallbackState = (State#state.mod):incoming_data(
+                              Port, Data, State#state.callback_state),
+            loop(State#state{callback_state = CallbackState});
+
+        {'EXIT', Port, Reason} when is_port(Port) ->
+            CallbackState = (State#state.mod):port_exit(
+                              Port, Reason, State#state.callback_state),
+            loop(State#state{callback_state = CallbackState});
+
         _ ->
             loop(State)
     end.
