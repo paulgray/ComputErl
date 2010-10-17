@@ -5,6 +5,8 @@
 %%%      Every new task type must implement the following callback functions:
 %%%      * init/2
 %%%      * start_computations/3
+%%%      TODO: update callback functions list, describe what should they do
+%%%      TODO: define spec return types
 %%% @end
 %%% Created :  1 Oct 2010 by Michal Ptaszek <michal.ptaszek@erlang-solutions.com>
 %%%-------------------------------------------------------------------
@@ -22,8 +24,8 @@
 
 -spec(behaviour_info/1 :: (atom()) -> term()).
 behaviour_info(callbacks) ->
-    [{init, 1}, 
-     {start_computations, 3},
+    [{init, 2}, 
+     {start_computations, 1},
      {incoming_data, 3},
      {port_exit, 3}];
 behaviour_info(_) ->
@@ -45,25 +47,26 @@ start_link(Ref, Config, InputPath) ->
 init(Parent, Ref, Config, InputPath) ->
     {value, {computation_type, Type, TypeParams}} = 
         lists:keysearch(computation_type, 1, Config),
-    case catch Type:init(TypeParams) of
-        {ok, CallbackState0} ->
+    case catch Type:init(TypeParams, InputPath) of
+        {ok, CallbackState} ->
             proc_lib:init_ack(Parent, {ok, self()}),
-            CallbackState = Type:start_computations(CallbackState0),
-
+            
             %% TODO - fault tolerance aspect - register 
             %% what is computed where
             
             %% TODO - consider calling term_to_binary/compressed 
             %% on 'config' to reduce a memory consumption
-            loop(#state{callback_state = CallbackState,
-                        mod = Type, 
-                        ref = Ref,
-                        config = Config,
-                        input_path = InputPath});
+            next_action(#state{mod = Type, 
+                               ref = Ref,
+                               config = Config,
+                               input_path = InputPath}, 
+                        Type:start_computations(CallbackState));
         Else ->
             proc_lib:init_ack(Parent, {error, Else})
     end.
 
+%% FIXME: change return value from CallbackState to {ok, NewCallbackState}
+%%        or {stop, Result}
 -spec(loop/1 :: (#state{}) -> no_return()).
 loop(State) ->
     receive
@@ -80,3 +83,14 @@ loop(State) ->
         _ ->
             loop(State)
     end.
+
+-spec(next_action/2 :: (#state{}, {ok, term()} | {stop, term()} | {error, term()}) ->
+                            no_return()).
+next_action(State, {ok, CallbackState}) ->
+    loop(State#state{callback_state = CallbackState});
+next_action(State, {stop, Result}) ->
+    %% TODO: implement complete action
+    io:format("Result: ~p~n", [Result]);
+next_action(State, {error, Reason}) ->
+    %% TODO: implement error handling branch
+    io:format("Error: ~p~n", [Reason]).
