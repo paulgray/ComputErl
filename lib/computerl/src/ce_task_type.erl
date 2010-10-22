@@ -45,8 +45,9 @@ start_link(Ref, Config, InputPath) ->
 -spec(init/4 :: (pid(), reference(), list(), string()) ->
                      no_return()).
 init(Parent, Ref, Config, InputPath) ->
-    {value, {computation_type, Type, TypeParams}} = 
+    {value, {computation_type, Type0, TypeParams}} = 
         lists:keysearch(computation_type, 1, Config),
+    Type = list_to_atom("ce_" ++ Type0),
     case catch Type:init(TypeParams, InputPath) of
         {ok, CallbackState} ->
             proc_lib:init_ack(Parent, {ok, self()}),
