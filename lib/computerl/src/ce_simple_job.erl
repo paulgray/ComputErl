@@ -14,7 +14,7 @@
 -behaviour(ce_task_type).
 
 -export([init/2, start_computations/1, 
-         incoming_data/3, port_exit/3]).
+         incoming_data/3, exit_notification/3]).
 
 -record(state, {input_fd :: pid(),
                 output_fd :: pid(),
@@ -36,15 +36,11 @@ init(Config, InputPath) ->
                 port = Port, 
                 output_file_path = OutputPath}}.
 
--spec(start_computations/1 :: (#state{}) -> {ok, #state{}} | 
-                                            {stop, string()} | 
-                                            {error, term()}).
+-spec(start_computations/1 :: (#state{}) -> ce_task:task_return()).
 start_computations(State) ->
     send_next_input_line(State).
 
--spec(incoming_data/3 :: (port(), term(), #state{}) -> {ok, #state{}} | 
-                                                       {stop, string()} | 
-                                                       {error, term()}).
+-spec(incoming_data/3 :: (port(), term(), #state{}) -> ce_task:task_return()).
 incoming_data(_Port, {data, {eol, Data}}, State) ->
     file:write(State#state.output_fd, Data),
     file:write(State#state.output_fd, "\n"),
@@ -55,8 +51,9 @@ incoming_data(_Port, {data, {line, Data}}, State) ->
     
     send_next_input_line(State).
 
--spec(port_exit/3 :: (port(), term(), #state{}) -> {error, {port_exit, term()}}).
-port_exit(_Port, Reason, State) ->
+-spec(exit_notification/3 :: (port(), term(), #state{}) -> 
+                                  {error, {port_exit, term()}}).
+exit_notification(_Port, Reason, State) ->
     terminate(State),
     {error, {port_exit, Reason}}.
 

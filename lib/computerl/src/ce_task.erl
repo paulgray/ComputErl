@@ -9,6 +9,10 @@
 
 -export([start_task/3]).
 
+-type(task_return() :: {ok, term()} | 
+                       {stop, string()} | 
+                       {error, term()}).
+
 -spec(start_task/3 :: (reference(), string(), string()) -> skip | {ok, pid()}).
 start_task(Ref, JobSpecPath, InputPath) ->
     case file:consult(JobSpecPath) of

@@ -27,7 +27,7 @@ behaviour_info(callbacks) ->
     [{init, 2}, 
      {start_computations, 1},
      {incoming_data, 3},
-     {port_exit, 3}];
+     {exit_notification, 3}];
 behaviour_info(_) ->
     undefined.
 
@@ -66,20 +66,20 @@ init(Parent, Ref, Config, InputPath) ->
             proc_lib:init_ack(Parent, {error, Else})
     end.
 
-%% FIXME: change return value from CallbackState to {ok, NewCallbackState}
-%%        or {stop, Result}
 -spec(loop/1 :: (#state{}) -> no_return()).
 loop(State) ->
     receive
-        {Port, Data} when is_port(Port) ->
+        {Source, Data} when is_port(Source);
+                          is_pid(Source) ->
             next_action(State,
                         (State#state.mod):incoming_data(
-                          Port, Data, State#state.callback_state));
+                          Source, Data, State#state.callback_state));
 
-        {'EXIT', Port, Reason} when is_port(Port) ->
+        {'EXIT', Source, Reason} when is_port(Source);
+                                      is_pid(Source) ->
             next_action(State,
-                        (State#state.mod):port_exit(
-                          Port, Reason, State#state.callback_state));
+                        (State#state.mod):exit_notification(
+                          Source, Reason, State#state.callback_state));
 
         _ ->
             loop(State)
