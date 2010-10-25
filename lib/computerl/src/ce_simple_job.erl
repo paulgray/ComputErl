@@ -24,7 +24,7 @@
 -spec(init/2 :: (list(), string()) -> {ok, #state{}}).
 init(Config, InputPath) ->
     Script = proplists:get_value(script, Config),
-    OutputPath = proplists:get_value(output_path, Config),
+    OutputPath = proplists:get_value(output_file, Config),
 
     {ok, IFd} = file:open(InputPath, [read, binary, raw, read_ahead]),
     {ok, OFd} = file:open(OutputPath, [write, binary, raw, delayed_write]),

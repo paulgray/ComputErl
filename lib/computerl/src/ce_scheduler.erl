@@ -18,6 +18,8 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
+-include("computerl_int.hrl").
+
 -record(state, {nodes :: queue()}).
 
 %%%===================================================================
@@ -74,7 +76,7 @@ init([]) ->
 %% Round-robin node rotation
 handle_call(get_node, _From, State) ->
     {{value, Node}, NewQ} = queue:out(State#state.nodes),
-    {reply, Node, State#state{nodes = queue:in(Node, NewQ)}}.
+    {reply, Node#node.name, State#state{nodes = queue:in(Node, NewQ)}}.
 
 %%--------------------------------------------------------------------
 %% @private

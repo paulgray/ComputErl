@@ -34,7 +34,7 @@ behaviour_info(_) ->
 -spec(start_task/3 :: (reference(), list(), string()) -> 
                            {ok, pid()} | {error, term()}).
 start_task(Ref, Config, InputPath) ->
-    ga_scheduler:call(ce_task_sup, start_task, 
+    ce_scheduler:call(ce_task_sup, start_task, 
                       [Ref, Config, InputPath]).
 
 -spec(start_link/3 :: (reference(), list(), string()) ->
@@ -47,7 +47,7 @@ start_link(Ref, Config, InputPath) ->
 init(Parent, Ref, Config, InputPath) ->
     {value, {computation_type, Type0, TypeParams}} = 
         lists:keysearch(computation_type, 1, Config),
-    Type = list_to_atom("ce_" ++ Type0),
+    Type = list_to_atom("ce_" ++ atom_to_list(Type0)),
     case catch Type:init(TypeParams, InputPath) of
         {ok, CallbackState} ->
             proc_lib:init_ack(Parent, {ok, self()}),
