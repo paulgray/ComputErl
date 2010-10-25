@@ -72,14 +72,14 @@ init(Parent, Ref, Config, InputPath) ->
 loop(State) ->
     receive
         {Port, Data} when is_port(Port) ->
-            CallbackState = (State#state.mod):incoming_data(
-                              Port, Data, State#state.callback_state),
-            loop(State#state{callback_state = CallbackState});
+            next_action(State,
+                        (State#state.mod):incoming_data(
+                          Port, Data, State#state.callback_state));
 
         {'EXIT', Port, Reason} when is_port(Port) ->
-            CallbackState = (State#state.mod):port_exit(
-                              Port, Reason, State#state.callback_state),
-            loop(State#state{callback_state = CallbackState});
+            next_action(State,
+                        (State#state.mod):port_exit(
+                          Port, Reason, State#state.callback_state));
 
         _ ->
             loop(State)
