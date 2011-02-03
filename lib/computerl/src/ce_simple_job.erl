@@ -2,8 +2,8 @@
 %%% @author Michal Ptaszek <michal.ptaszek@erlang-solutions.com>
 %%% @copyright (C) 2010, Erlang Solutions Ltd.
 %%% @doc Simple, one-off sequential job which will be executed
-%%%      on one of the available machines within the ComputErl 
-%%%      cluster. 
+%%%      on one of the available machines within the ComputErl
+%%%      cluster.
 %%%
 %%%      TODO: describe the job options here
 %%% @end
@@ -13,7 +13,7 @@
 
 -behaviour(ce_task_type).
 
--export([init/2, start_computations/1, 
+-export([init/2, start_computations/1,
          incoming_data/3, exit_notification/3]).
 
 -record(state, {input_fd :: pid(),
@@ -28,12 +28,12 @@ init(Config, InputPath) ->
 
     {ok, IFd} = file:open(InputPath, [read, binary, raw, read_ahead]),
     {ok, OFd} = file:open(OutputPath, [write, binary, raw, delayed_write]),
-    
+
     Port = open_port({spawn, Script}, [stream, {line, 10240}, binary,
                                        use_stdio, stderr_to_stdout]),
-    {ok, #state{input_fd = IFd, 
+    {ok, #state{input_fd = IFd,
                 output_fd = OFd,
-                port = Port, 
+                port = Port,
                 output_file_path = OutputPath}}.
 
 -spec(start_computations/1 :: (#state{}) -> ce_task:task_return()).
@@ -44,14 +44,14 @@ start_computations(State) ->
 incoming_data(_Port, {data, {eol, Data}}, State) ->
     file:write(State#state.output_fd, Data),
     file:write(State#state.output_fd, "\n"),
-    
+
     send_next_input_line(State);
 incoming_data(_Port, {data, {line, Data}}, State) ->
     file:write(State#state.output_fd, Data),
-    
+
     send_next_input_line(State).
 
--spec(exit_notification/3 :: (port(), term(), #state{}) -> 
+-spec(exit_notification/3 :: (port(), term(), #state{}) ->
                                   {error, {port_exit, term()}}).
 exit_notification(_Port, Reason, State) ->
     terminate(State),
@@ -78,5 +78,5 @@ terminate(State) ->
     file:close(State#state.output_fd),
 
     catch port_close(State#state.port),
-    
+
     State#state.output_file_path.

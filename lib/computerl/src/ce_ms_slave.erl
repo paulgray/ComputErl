@@ -14,7 +14,7 @@
 %%%-------------------------------------------------------------------
 -module(ce_ms_slave).
 
--export([start_link/1]).
+-export([start_link/1, input_data/2]).
 -export([init/2]).
 
 -record(slave_state, {script_path :: string(),
@@ -24,6 +24,10 @@
 -spec(start_link/1 :: (string()) -> {ok, pid()} | {error, term()}).
 start_link(ScriptPath) ->
     proc_lib:start_link(?MODULE, init, [ScriptPath, self()]).
+
+-spec(input_data/2 :: (pid(), binary()) -> any()).
+input_data(Slave, Data) ->
+    Slave ! {input_data, Data}.
 
 -spec(init/2 :: (string(), pid()) -> no_return()).
 init(ScriptPath, Parent) ->
@@ -38,4 +42,22 @@ init(ScriptPath, Parent) ->
 
 -spec(loop/1 :: (#slave_state{}) -> no_return()).
 loop(State) ->
-    ok.
+    NewState = receive
+                   {input_data, Data} ->
+                       start_computations(State, Data);
+                   {result_data, Result} ->
+                       submit_results(State, Result)
+               end,
+    loop(NewState).
+
+-spec(start_computations/2 :: (#slave_state{}, binary()) -> #slave_state{}).
+start_computations(#slave_state{script_path = Script} = State, Data) ->
+    Port = open_port({spawn, Script}, [stream, {line, 10240}, binary,
+                                       use_stdio, stderr_to_stdout]),
+    port_command(Port, Data),
+    State#slave_state{port = Port}.
+
+-spec(submit_results/2 :: (#slave_state{}, binary()) -> #slave_state{}).
+submit_results(State, Result) ->
+    catch port_close(State#slave_state.port),
+    State#slave_state.parent ! {self(), Result}.
