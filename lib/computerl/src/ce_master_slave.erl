@@ -76,7 +76,7 @@ start_workers(0, _, Workers) ->
     Workers;
 start_workers(N, Script, Workers) when N > 0 ->
     {ok, Pid} = ce_ms_slave:start_link(Script),
-    start_workers(N, Script, gb_trees:insert(Pid, undefined, Workers)).
+    start_workers(N-1, Script, gb_trees:insert(Pid, undefined, Workers)).
 
 -spec(send_input_lines/2 :: (#state{}, term()) -> {ok, #state{}}).
 send_input_lines(State, Iter) ->
@@ -99,7 +99,7 @@ feed_worker(Pid, #state{input_fd = IFd} = State) ->
     case gb_trees:size(State#state.workers) of
         1 when IFd == eof ->
             {ok, State};
-        true ->
+        _ ->
             case file:read_line(IFd) of
                 {ok, Data} ->
                     ce_ms_slave:input_data(Pid, Data),

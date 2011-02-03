@@ -31,7 +31,7 @@ input_data(Slave, Data) ->
 
 -spec(init/2 :: (string(), pid()) -> no_return()).
 init(ScriptPath, Parent) ->
-    case file:is_file(ScriptPath) of
+    case filelib:is_file(ScriptPath) of
         true ->
             proc_lib:init_ack(Parent, {ok, self()}),
             loop(#slave_state{script_path = ScriptPath,
@@ -41,11 +41,11 @@ init(ScriptPath, Parent) ->
     end.
 
 -spec(loop/1 :: (#slave_state{}) -> no_return()).
-loop(State) ->
+loop(#slave_state{port = Port} = State) ->
     NewState = receive
                    {input_data, Data} ->
                        start_computations(State, Data);
-                   {result_data, Result} ->
+                   {Port, Result} ->
                        submit_results(State, Result)
                end,
     loop(NewState).
@@ -60,4 +60,5 @@ start_computations(#slave_state{script_path = Script} = State, Data) ->
 -spec(submit_results/2 :: (#slave_state{}, binary()) -> #slave_state{}).
 submit_results(State, Result) ->
     catch port_close(State#slave_state.port),
-    State#slave_state.parent ! {self(), Result}.
+    State#slave_state.parent ! {self(), Result},
+    State.
