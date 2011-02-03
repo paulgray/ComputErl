@@ -10,7 +10,7 @@
 %%%      In order to provide a satisiable efficiency, in the case
 %%%      when a number of tasks to perform is much greater than
 %%%      the number of workers, it is possible to spawn an additional
-%%%      level of masters (divide & conqer strategy). This concept
+%%%      level of masters (divide & conquer strategy). This concept
 %%%      is often refered in the literature as 'fat tree'.
 %%%
 %%%      TODO: describe possible options
@@ -43,9 +43,20 @@ init(Config, InputPath) ->
     {ok, IFd} = file:open(InputPath, [read, binary, raw, read_ahead]),
     {ok, OFd} = file:open(OutputPath, [write, binary, raw, delayed_write]),
 
+    MaxTasksPerWorker = proplists:get_value(max_tasks_per_worker,
+                                            Config, infinity),
+    MastersPerLevel = proplists:get_value(masters_per_level, Config, 2),
     NWorkers = proplists:get_value(number_of_workers, Config,
                                    ?DEFAULT_WORKERS_NO),
-    Workers = start_workers(NWorkers, Script, gb_trees:empty()),
+
+    TaskNo = number_of_tasks(InputPath, IFd),
+    Workers = if
+                  %% if we know that we are going to overload workers
+                  TaskNo > NWorkers*MaxTasksPerWorker ->
+                      start_masters(MastersPerLevel, Config, gb_trees:empty());
+                  true ->
+                      start_workers(NWorkers, Script, gb_trees:empty())
+              end,
 
     {ok, #state{input_fd = IFd,
                 output_path = OutputPath,
@@ -79,6 +90,17 @@ start_workers(0, _, Workers) ->
 start_workers(N, Script, Workers) when N > 0 ->
     {ok, Pid} = ce_ms_slave:start_link(Script),
     start_workers(N-1, Script, gb_trees:insert(Pid, undefined, Workers)).
+
+%% TODO: figure out how to divide the file into chunks and pass them
+%% to the newly created masters
+%% TODO: think about reusing ce_master_slave code, we do not really
+%% have anything like ce_ms_master now, and I think we do not need any
+-spec(start_masters/3 :: (integer(), list(), gb_tree()) -> gb_tree()).
+start_masters(0, _, Masters) ->
+    Masters;
+start_masters(N, Config, Masters) ->
+    {ok, Pid} = ce_ms_master:start_link(Config),
+    start_masters(N-1, Config, gb_trees:insert(Pid, undefined, Masters)).
 
 -spec(send_input_lines/2 :: (#state{}, term()) -> {ok, #state{}}).
 send_input_lines(State, Iter) ->
@@ -120,3 +142,19 @@ feed_worker(Pid, #state{input_fd = IFd} = State) ->
                     Error
             end
     end.
+
+-spec(number_of_tasks/2 :: (string(), port()) -> integer()).
+number_of_tasks(InputPath, Fd) ->
+    %% TODO: check what is the most efficient way of estimation
+    %% or accurate computing the total number of lines in the file
+    %% A helpful hint: maybe it might be good to have something
+    %% in the configuration saying what is the expected line length
+    %% and basing on that + actual file size we will be able to
+    %% guess the number of inputs.
+    %% The problematic part are pipes which obviously do not have
+    %% size. Nonetheless, when reading from pipe we will never be
+    %% able to estimate anything, thus maybe one more option will
+    %% be good for us? (like {pipe, true}). Then user who is issuing
+    %% the computations will be forced to provide exact configuration
+    %% for ms (depth and span of the tree).
+    0.

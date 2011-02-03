@@ -64,6 +64,8 @@ start_computations(#slave_state{script_path = Script} = State, Data) ->
     port_command(Port, Data),
     State#slave_state{port = Port}.
 
+%% TODO: check if there can be other value submitted by port (than we
+%% pattern match on here)
 -spec(submit_results/2 :: (#slave_state{}, binary()) -> #slave_state{}).
 submit_results(State, {data, {_, Result}}) ->
     catch port_close(State#slave_state.port),
