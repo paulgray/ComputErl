@@ -14,7 +14,7 @@
 %%%-------------------------------------------------------------------
 -module(ce_ms_slave).
 
--export([start_link/1, input_data/2]).
+-export([start_link/1, input_data/2, stop/1]).
 -export([init/2]).
 
 -record(slave_state, {script_path :: string(),
@@ -24,6 +24,11 @@
 -spec(start_link/1 :: (string()) -> {ok, pid()} | {error, term()}).
 start_link(ScriptPath) ->
     proc_lib:start_link(?MODULE, init, [ScriptPath, self()]).
+
+-spec(stop/1 :: (pid()) -> any()).
+stop(Slave) ->
+    unlink(Slave),
+    Slave ! stop.
 
 -spec(input_data/2 :: (pid(), binary()) -> any()).
 input_data(Slave, Data) ->
@@ -46,7 +51,9 @@ loop(#slave_state{port = Port} = State) ->
                    {input_data, Data} ->
                        start_computations(State, Data);
                    {Port, Result} ->
-                       submit_results(State, Result)
+                       submit_results(State, Result);
+                   stop ->
+                       exit(normal)
                end,
     loop(NewState).
 
@@ -58,7 +65,7 @@ start_computations(#slave_state{script_path = Script} = State, Data) ->
     State#slave_state{port = Port}.
 
 -spec(submit_results/2 :: (#slave_state{}, binary()) -> #slave_state{}).
-submit_results(State, Result) ->
+submit_results(State, {data, {_, Result}}) ->
     catch port_close(State#slave_state.port),
     State#slave_state.parent ! {self(), Result},
     State.

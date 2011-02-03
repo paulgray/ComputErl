@@ -27,6 +27,7 @@
 -define(DEFAULT_WORKERS_NO, 128).
 
 -record(state, {output_fd :: pid(),
+                output_path :: string(),
                 input_fd :: pid(),
                 script :: string(),
                 workers :: gb_tree()}).
@@ -47,6 +48,7 @@ init(Config, InputPath) ->
     Workers = start_workers(NWorkers, Script, gb_trees:empty()),
 
     {ok, #state{input_fd = IFd,
+                output_path = OutputPath,
                 output_fd = OFd,
                 script = Script,
                 workers = Workers}}.
@@ -96,9 +98,13 @@ send_input_lines(State, Iter) ->
 
 -spec(feed_worker/2 :: (pid(), #state{}) -> {ok | stop, #state{}} | {error, term()}).
 feed_worker(Pid, #state{input_fd = IFd} = State) ->
-    case gb_trees:size(State#state.workers) of
-        1 when IFd == eof ->
-            {ok, State};
+    case {gb_trees:size(State#state.workers), IFd} of
+        {1, eof} ->
+            file:close(State#state.output_fd),
+            {stop, State#state.output_path};
+        {_, eof} ->
+            ce_ms_slave:stop(Pid),
+            {ok, State#state{workers = gb_trees:delete(Pid, State#state.workers)}};
         _ ->
             case file:read_line(IFd) of
                 {ok, Data} ->
@@ -107,7 +113,9 @@ feed_worker(Pid, #state{input_fd = IFd} = State) ->
                                                               State#state.workers)}};
                 eof ->
                     file:close(IFd),
-                    {ok, State#state{input_fd = eof}};
+                    ce_ms_slave:stop(Pid),
+                    {ok, State#state{input_fd = eof,
+                                     workers = gb_trees:delete(Pid, State#state.workers)}};
                 Error ->
                     Error
             end
