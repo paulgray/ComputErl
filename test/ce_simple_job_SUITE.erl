@@ -33,16 +33,19 @@ adder(_Config) ->
     ok.
 
 word_counter(Config0) ->
-    Config = proplists:get_value(simple_job, Config0),
+    Config = ct:get_config(simple_job, Config0),
 
-    JobCfg = proplists:get_value(config, Config),
-    Input = proplists:get_value(input, Config),
+    JobCfg = filename:join([root_dir(), proplists:get_value(config, Config)]),
+    Input = filename:join([root_dir(), proplists:get_value(input, Config)]),
 
+    error_logger:info_msg("Current dir: ~p, JobCfg: ~p~n~n", [file:get_cwd(), JobCfg]),
+    mnesia:info(),
     {ok, Terms} = file:consult(JobCfg),
     {value, {_, simple_job, Opts}} = lists:keysearch(computation_type, 1, Terms),
     Output = proplists:get_value(output_file, Opts),
-
     file:delete(Output),
+
+    file:set_cwd(root_dir()),
 
     {ok, Ref} = ce_input:compute(JobCfg, Input),
     {ok, OutputPath} = wait_for_job_to_finish(
@@ -57,3 +60,7 @@ wait_for_job_to_finish(Ref, Timeout) ->
     after Timeout ->
             {error, timeout}
     end.
+
+root_dir() ->
+    filename:join([filename:dirname(code:which(computerl_app)), "..", "..", ".."]).
+

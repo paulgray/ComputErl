@@ -31,14 +31,14 @@ db_init() ->
         [] ->
             application:stop(mnesia),
             mnesia:create_schema([node()]),
-            create_tables(),
-            application:start(mnesia, permanent);
+            application:start(mnesia, permanent),
+            create_tables();
         _ ->
             ok
     end.
 
 -spec(create_tables/0 :: () -> any()).
 create_tables() ->
-    mnesia:create_table(ce_tasks, [{ram_copies, [node() | nodes()]},
-                                   {attributes, record_info(fields, ce_task)}]),
-    mnesia:add_table_copy(ce_tasks, node(), ram_copies).
+    mnesia:create_table(ce_task, [{ram_copies, [node() | nodes()]},
+                                  {attributes, record_info(fields, ce_task)}]),
+    mnesia:add_table_copy(ce_task, node(), ram_copies).
