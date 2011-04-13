@@ -27,8 +27,15 @@ start_link(ScriptPath) ->
 
 -spec(stop/1 :: (pid()) -> any()).
 stop(Slave) ->
+    MRef = erlang:monitor(process, Slave),
     unlink(Slave),
-    Slave ! stop.
+    Slave ! stop,
+    receive
+        {'DOWN', MRef, process, Slave, _} ->
+            ok
+    after 1000 ->
+            exit(Slave, kill)
+    end.
 
 -spec(input_data/2 :: (pid(), binary()) -> any()).
 input_data(Slave, Data) ->

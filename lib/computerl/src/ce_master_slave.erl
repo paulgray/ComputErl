@@ -21,10 +21,10 @@
 
 -behaviour(ce_task_type).
 
+-include("ce_master_slave.hrl").
+
 -export([init/2, start_computations/1,
          incoming_data/3, exit_notification/3]).
-
--define(DEFAULT_WORKERS_NO, 128).
 
 -record(state, {output_fd :: pid(),
                 output_path :: string(),
@@ -32,7 +32,6 @@
                 script :: string(),
                 workers :: gb_tree()}).
 
-%% TODO: implement 'fat tree'
 -spec(init/2 :: (list(), string()) -> {ok, #state{}}).
 init(Config, InputPath) ->
     process_flag(trap_exit, true),
@@ -43,19 +42,31 @@ init(Config, InputPath) ->
     {ok, IFd} = file:open(InputPath, [read, binary, raw, read_ahead]),
     {ok, OFd} = file:open(OutputPath, [write, binary, raw, delayed_write]),
 
-    MaxTasksPerWorker = proplists:get_value(max_tasks_per_worker,
-                                            Config, infinity),
-    MastersPerLevel = proplists:get_value(masters_per_level, Config, 2),
+    %% This means that by default we want a single master running.
+    %% Depth == 2 means we would like to spawn a single submaster level.
+    TreeDepth = proplists:get_value(tree_depth, Config, ?DEFAULT_TREE_DEPTH),
+    %% Combining this option with tree_depth we can reason about
+    %% the tree layout.
+    %%
+    %% For instance, having 4 masters_per_level and tree_depth set to 3,
+    %% we will have 1 master in the first tier, 4 submasters under it,
+    %% and finally 16 sub-submasters on the third layer (21 masters in total).
+    MastersPerLevel = proplists:get_value(masters_per_level, Config,
+                                          ?DEFAULT_MASTERS_PER_LEVEL),
     NWorkers = proplists:get_value(number_of_workers, Config,
                                    ?DEFAULT_WORKERS_NO),
 
-    TaskNo = number_of_tasks(InputPath, IFd),
     Workers = if
-                  %% if we know that we are going to overload workers
-                  TaskNo > NWorkers*MaxTasksPerWorker ->
-                      start_masters(MastersPerLevel, Config, gb_trees:empty());
+                  TreeDepth == 1 ->
+                      %% we are the final master, let's just
+                      %% spawn worker processes
+                      start_workers(NWorkers, Script, gb_trees:empty());
                   true ->
-                      start_workers(NWorkers, Script, gb_trees:empty())
+                      %% the fat tree is not completed yet,
+                      %% spawn additional layer
+                      start_masters(MastersPerLevel,
+                                    lists:keystore(tree_depth, 1, Config, {tree_depth, TreeDepth-1}),
+                                    gb_trees:empty())
               end,
 
     {ok, #state{input_fd = IFd,
@@ -142,19 +153,3 @@ feed_worker(Pid, #state{input_fd = IFd} = State) ->
                     Error
             end
     end.
-
--spec(number_of_tasks/2 :: (string(), port()) -> integer()).
-number_of_tasks(InputPath, Fd) ->
-    %% TODO: check what is the most efficient way of estimation
-    %% or accurate computing the total number of lines in the file
-    %% A helpful hint: maybe it might be good to have something
-    %% in the configuration saying what is the expected line length
-    %% and basing on that + actual file size we will be able to
-    %% guess the number of inputs.
-    %% The problematic part are pipes which obviously do not have
-    %% size. Nonetheless, when reading from pipe we will never be
-    %% able to estimate anything, thus maybe one more option will
-    %% be good for us? (like {pipe, true}). Then user who is issuing
-    %% the computations will be forced to provide exact configuration
-    %% for ms (depth and span of the tree).
-    0.
