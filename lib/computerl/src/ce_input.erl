@@ -35,7 +35,7 @@ start_link() ->
 
 -spec(compute/2 :: (string(), string()) -> {ok, reference()} | {error, term()}).
 compute(JobDescPath, InputPath) ->
-    gen_server:call(?MODULE, {new_task, JobDescPath, InputPath}).
+    gen_server:call(?MODULE, {new_task, JobDescPath, InputPath, self()}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -69,19 +69,19 @@ init([]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({new_task, JobDescPath, InputPath}, _From, State) ->
+handle_call({new_task, JobDescPath, InputPath, Caller}, _From, State) ->
     case (filelib:is_file(JobDescPath) andalso
           filelib:is_file(InputPath)) of
         true ->
             Ref = make_ref(),
-            ce_task:start_task(Ref, JobDescPath, InputPath),
+            ce_task:start_task(Ref, JobDescPath, InputPath, Caller),
 
             {reply, {ok, Ref}, State};
 
         false ->
             {reply, {error, enoent}, State}
     end.
-            
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc

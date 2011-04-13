@@ -1,0 +1,4 @@
+#!/bin/bash
+
+mkdir -p test/ct_report
+ERL_MAX_PORTS=50000 erl +A 8 +K true -sname test -pa lib/*/ebin -pa test -s run_ct ct

@@ -90,8 +90,9 @@ loop(State) ->
 next_action(State, {ok, CallbackState}) ->
     loop(State#state{callback_state = CallbackState});
 next_action(State, {stop, Result}) ->
+    ce_task:finish_task(State#state.ref, Result),
     %% TODO: implement complete action
     io:format("Result: ~p~n", [Result]);
-next_action(State, {error, Reason}) ->
+next_action(_State, {error, Reason}) ->
     %% TODO: implement error handling branch
     io:format("Error: ~p~n", [Reason]).
