@@ -29,8 +29,28 @@ end_per_group(_GroupName, _Config) ->
     application:stop(sasl),
     application:stop(mnesia).
 
-adder(_Config) ->
-    ok.
+adder(Config0) ->
+    Config = ct:get_config(simple_job, Config0),
+
+    JobCfg = filename:join([root_dir(), proplists:get_value(config, Config)]),
+    Input = filename:join([root_dir(), proplists:get_value(input, Config)]),
+
+    write_n_words(Input, "\n", 100),
+
+    mnesia:info(),
+    {ok, Terms} = file:consult(JobCfg),
+    {value, {_, simple_job, Opts}} = lists:keysearch(computation_type, 1, Terms),
+    Output = proplists:get_value(output_file, Opts),
+    file:delete(Output),
+
+    file:set_cwd(root_dir()),
+
+    {ok, Ref} = ce_input:compute(JobCfg, Input),
+    {ok, OutputPath} = wait_for_job_to_finish(
+                         Ref, proplists:get_value(job_timeout, Config, 10000)),
+
+    true = filelib:is_file(OutputPath),
+    verify_output(OutputPath).
 
 word_counter(Config0) ->
     Config = ct:get_config(simple_job, Config0),
@@ -38,9 +58,8 @@ word_counter(Config0) ->
     JobCfg = filename:join([root_dir(), proplists:get_value(config, Config)]),
     Input = filename:join([root_dir(), proplists:get_value(input, Config)]),
 
-    write_n_words(Input, 100),
+    write_n_words(Input, " ", 100),
 
-    error_logger:info_msg("Current dir: ~p, JobCfg: ~p~n~n", [file:get_cwd(), JobCfg]),
     mnesia:info(),
     {ok, Terms} = file:consult(JobCfg),
     {value, {_, simple_job, Opts}} = lists:keysearch(computation_type, 1, Terms),
@@ -67,14 +86,27 @@ wait_for_job_to_finish(Ref, Timeout) ->
 root_dir() ->
     filename:join([filename:dirname(code:which(computerl_app)), "..", "..", ".."]).
 
-write_n_words(Input, N) ->
+write_n_words(Input, Delimiter, N) ->
     {ok, Fd} = file:open(filename:join([root_dir(), Input]), [write]),
-    write_n_words0(Fd, N).
+    write_n_words0(Fd, Delimiter, N).
 
-write_n_words0(Fd, 0) ->
+write_n_words0(Fd, _, 0) ->
     io:format(Fd, "~n", []),
     ok = file:close(Fd);
-write_n_words0(Fd, N) ->
+write_n_words0(Fd, Delimiter, N) ->
     Str = lists:duplicate(N, $a),
-    io:format(Fd, "~s ", [Str]),
-    write_n_words0(Fd, N-1).
+    io:format(Fd, "~s~s", [Str, Delimiter]),
+    write_n_words0(Fd, Delimiter, N-1).
+
+verify_output(Path) ->
+    {ok, Fd} = file:open(Path, [read, binary]),
+    verify_output(Fd, 1).
+
+verify_output(Fd, 101) ->
+    {ok, <<"0\n">>} = file:read_line(Fd),
+    eof = file:read_line(Fd),
+    file:close(Fd);
+verify_output(Fd, N) ->
+    {ok, Bin} = file:read_line(Fd),
+    1 = list_to_integer(string:strip(binary_to_list(Bin), right, $\n)),
+    verify_output(Fd, N+1).
