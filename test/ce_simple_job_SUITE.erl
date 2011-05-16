@@ -38,6 +38,8 @@ word_counter(Config0) ->
     JobCfg = filename:join([root_dir(), proplists:get_value(config, Config)]),
     Input = filename:join([root_dir(), proplists:get_value(input, Config)]),
 
+    write_n_words(Input, 100),
+
     error_logger:info_msg("Current dir: ~p, JobCfg: ~p~n~n", [file:get_cwd(), JobCfg]),
     mnesia:info(),
     {ok, Terms} = file:consult(JobCfg),
@@ -51,7 +53,8 @@ word_counter(Config0) ->
     {ok, OutputPath} = wait_for_job_to_finish(
                          Ref, proplists:get_value(job_timeout, Config, 10000)),
 
-    true = filelib:is_file(OutputPath).
+    true = filelib:is_file(OutputPath),
+    {ok, <<"100\n">>} = file:read_file(OutputPath).
 
 wait_for_job_to_finish(Ref, Timeout) ->
     receive
@@ -64,3 +67,14 @@ wait_for_job_to_finish(Ref, Timeout) ->
 root_dir() ->
     filename:join([filename:dirname(code:which(computerl_app)), "..", "..", ".."]).
 
+write_n_words(Input, N) ->
+    {ok, Fd} = file:open(filename:join([root_dir(), Input]), [write]),
+    write_n_words0(Fd, N).
+
+write_n_words0(Fd, 0) ->
+    io:format(Fd, "~n", []),
+    ok = file:close(Fd);
+write_n_words0(Fd, N) ->
+    Str = lists:duplicate(N, $a),
+    io:format(Fd, "~s ", [Str]),
+    write_n_words0(Fd, N-1).
